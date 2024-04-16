@@ -11,7 +11,7 @@ def run_ffmpeg_command(command):
         print("FFmpeg stderr:", e.stderr, file=sys.stderr)
 
 if __name__ == "__main__":
-    ffmpeg_command = ['ffmpeg', '-i', 'input_video.mp4', 
+    ffmpeg_command = ['ffmpeg', '-i', 'video.mp4', 
                       '-codec:v', 'libx264', '-profile:v', 
                       'main', '-preset', 'slow', '-b:v', '400k', 
                       '-maxrate', '400k', '-bufsize', '800k', '-vf', 
