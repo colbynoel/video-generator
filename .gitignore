@@ -1,4 +1,11 @@
   env/
+  client_secret_youtube.json
+  fonts/
+  openai_responses/
+  subtitles/
+  test_scripts/
+  videos/
+
   .env
   videos/
   # Byte-compiled / optimized / DLL files
