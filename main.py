@@ -1,4 +1,5 @@
 from openai import OpenAI
+import re
 import time
 import datetime
 import os
@@ -10,16 +11,33 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+import pathlib
 
-# Define the scope
+# Create necessary paths
+pathlib.Path('./videos').mkdir(parents=True, exist_ok=True) 
+pathlib.Path('./openai_responses').mkdir(parents=True, exist_ok=True) 
+pathlib.Path('./subtitles').mkdir(parents=True, exist_ok=True) 
+
+#Constants
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
-
-# Path to the credentials file
 CLIENT_SECRETS_FILE = "./client_secret.json"
+MINIMUM_VIDEO_LENGTH = 30
 
 load_dotenv()
 
 os.environ["OPENAI_API_KEY"] = str(os.getenv("OPEN_AI_KEY"))
+
+def get_title(filename: str):
+
+    with open(filename, "r") as file:
+        text = file.read()
+
+    match = re.search(r'^Title:\s*(.+)\s*$', text, re.MULTILINE)
+    if match:
+        title = match.group(1)
+        return title
+    else:
+        return "I CAN'T BELIEVE THIS HAPPENED"
 
 def create_reddit_story():
     client = OpenAI()
@@ -118,24 +136,25 @@ def upload_video(youtube, file, title, description, category, tags):
 if __name__ == "__main__":
     video_name = "reddit_aita_FINAL.mp4"
 
-    title = "FINAL TESTING PART {count}"
+    title = get_title("./openai_responses/llm_story.txt") + " PART {count}"
+
     description = '#shorts'
     category = '22'  
     tags = ['#shorts', '#reddit', "#redditstories"]
-    #
-    # print("Creating reddit story")
-    # create_reddit_story()
-    #
-    # print("Getting audio length")
-    # hours, minutes, seconds, milliseconds = VideoEditor.get_audio_duration("speech.mp3")
-    #
-    # print("Cutting video")
-    # VideoEditor.cut_duration("minecraft.mp4", "00:00:07", f"{hours}:{minutes}:{seconds}", "output.mp4")
-    #
-    # print("Cutting video finished")
-    # VideoEditor.finish_video("transcription.srt", "output.mp4", "speech.mp3", video_name)
-    #
-    # print("Done making full video! Check videos folder for the file")
+
+    print("Creating reddit story")
+    create_reddit_story()
+
+    print("Getting audio length")
+    hours, minutes, seconds, milliseconds = VideoEditor.get_audio_duration("speech.mp3")
+
+    print("Cutting video")
+    VideoEditor.cut_duration("minecraft.mp4", "00:00:07", f"{hours}:{minutes}:{seconds}", "output.mp4")
+
+    print("Cutting video finished")
+    VideoEditor.finish_video("transcription.srt", "output.mp4", "speech.mp3", video_name)
+
+    print("Done making full video! Check videos folder for the file")
 
     print("Getting YT Authed")
     youtube = get_authenticated_service()
@@ -144,23 +163,35 @@ if __name__ == "__main__":
 
     start_time = datetime.datetime(100, 1, 1, 0, 0, 0)
     video_length = VideoEditor.get_video_length(video_name)
-    print(video_length)
-    segments = int(video_length / 60)
+    print(f"Video Length = {video_length}")
+    segment_length = 59
+
+    segments = int(video_length / 59)
+    remainder = video_length % (segment_length * segments)
+    print(f"Remainder = {remainder}")
+    if remainder < MINIMUM_VIDEO_LENGTH:
+        segment_length = (video_length -  30) / segments
+
+    print(f"Segment Length = {segment_length}")
+
     video_length = datetime.datetime(100, 1, 1, 0, 0, 0) + datetime.timedelta(seconds=int(video_length))
+
     count = 1
     segmented_video = f"{video_name[:-4]}_{count}.mp4"
     while count <= segments:
-        VideoEditor.cut_duration(video_name, str(start_time.time()), "00:00:59", segmented_video)
+        VideoEditor.cut_duration(video_name, str(start_time.time()), f"00:00:{segment_length}", segmented_video)
         print(f"Uploading {segmented_video}")
         upload_video(youtube, segmented_video, title.format(count=count), description, category, tags)
-        start_time = start_time + datetime.timedelta(seconds=59)
+        start_time = start_time + datetime.timedelta(seconds=segment_length)
         count += 1
         segmented_video = f"{video_name[:-4]}_{count}.mp4"
     else:
-        video_length = video_length - datetime.timedelta(seconds=start_time.time().second)
-        print(start_time, video_length.time())
+        if segment_length == 59:
+            video_length = video_length - datetime.timedelta(seconds=start_time.time().second)
+        else:
+            video_length = datetime.datetime(100, 1, 1, 0, 0, 30)
+
         VideoEditor.cut_duration(video_name, str(start_time.time()), str(video_length.time()), segmented_video)
-        print(f"Uploading {segmented_video}")
         upload_video(youtube, segmented_video, title.format(count=count), description, category, tags)
-
-
+    
+    
